@@ -24,3 +24,151 @@ scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 ```
 
+## Lists
+
+```{r}
+l = list(
+  vec_numeric = 5:8,
+  vec_logical = c(TRUE, FALSE),
+  summary = summary(rnorm(1000, mean = 5, sd = 3))
+)
+
+l[3]
+
+l[[3]]
+
+l[["summary"]]
+
+l$summary
+```
+
+## List of normals
+
+```{r}
+mean_and_sd = function(x){
+  
+  if (!is.numeric(x)) {
+    stop("x needs to be numeric")
+  }
+  
+  if (length(x) < 3) {
+    stop("x should have at least 3 numbers")
+  }
+  
+  mean_x = mean(x)
+  
+  sd_x = sd(x)
+  
+  output_df = 
+    tibble(
+      mean = mean_x,
+      sd = sd_x
+    )
+  
+  return(output_df)
+  
+}
+
+list_norms = 
+  list(
+    a = rnorm(50, mean = 2, sd = 1),
+    b = rnorm(50, mean = 5, sd = 3),
+    c = rnorm(50, mean = 20, sd = 1.2),
+    d = rnorm(50, mean = -12, sd = .5)
+  )
+
+mean_and_sd(list_norms[[1]])
+```
+
+## for loop
+
+Let's use a for loop to iterate over my list of normals.
+
+```{r}
+output = vector("list", length = 4)
+
+for (i in 1:4) {
+  
+  output[[i]] = mean_and_sd(list_norms[[i]])
+  
+}
+```
+
+Let's use map instead...
+
+
+```{r}
+output = map(list_norms, mean_and_sd)
+
+output = map_dbl(list_norms, median)
+
+output = map(list_norms, IQR)
+```
+
+## LIST COLUMNS!!!!!
+
+```{r}
+listcol_df = 
+  tibble(
+    name = c("a", "b", "c", "d"),
+    norms = list_norms
+  )
+
+listcol_df %>% 
+  filter(name == "a")
+
+listcol_df %>% pull(name)
+listcol_df %>% pull(norms)
+
+mean_and_sd(listcol_df$norms[[1]])
+
+listcol_df %>% 
+  mutate(summaries = map(norms, mean_and_sd)) %>% 
+  pull(summaries)
+```
+
+## Nested data
+
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728", "USC00519397", "USS0023B17S"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(
+      id, 
+      USW00094728 = "CentralPark_NY", 
+      USC00519397 = "Waikiki_HA",
+      USS0023B17S = "Waterhole_WA"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
+Nest data within location
+
+```{r}
+weather_nested = nest(weather_df, data = date:tmin)
+
+weather_nested %>% 
+  #filter(name == "CentralPark_NY") %>% 
+  pull(data)
+
+lm(tmax ~ tmin, data = weather_nested$data[[1]])
+
+weather_lm = function(df) {
+  
+  lm(tmax ~ tmin, data = df)
+  
+}
+
+weather_lm(weather_nested$data[[1]])
+
+weather_nested %>% 
+  mutate(lm_results = map(data, weather_lm)) %>% 
+  pull(lm_results)
+
+```
+
